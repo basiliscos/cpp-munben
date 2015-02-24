@@ -1,0 +1,1 @@
+g++ -g -Wall -I ~/development/c++/sf-AntTweakBar/include -I /usr/include munben.cpp -o munben `pkg-config --libs sdl` `pkg-config --libs SDL_image` -L ~/development/c++/sf-AntTweakBar/lib/debug -lAntTweakBar -lGL -lGLU
