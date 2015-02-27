@@ -91,9 +91,9 @@ int main()
 
     // Create a tweak bar
     bar = TwNewBar("TweakBar");
-    float distance = -2.0f;
+    float distance = -0.20f;
     TwAddVarRW(bar, "distance", TW_TYPE_FLOAT, &distance, 
-               " max=-0.25 min=-4.0 step=0.01");
+               " max=-0.20 min=-4.0 step=0.01");
     float overlap = 0.0f;
     TwAddVarRW(bar, "overlap", TW_TYPE_FLOAT, &overlap, 
                "max=0.25 min=0.0 step=0.001");
@@ -130,26 +130,44 @@ int main()
     
 	glTranslatef( 0, 0, distance);
 	glColor3d( 1, 1, 1 );
-        glBindTexture(GL_TEXTURE_2D, texture_id);
+    glBindTexture(GL_TEXTURE_2D, texture_id);
 	glBegin(GL_QUADS);
     /* left */
 	glTexCoord2f( 0.0, 0.0 );
 	glVertex3f( -1.0, 1.0, 0 );
-	glTexCoord2f( 0.5 + texture_overlap, 0.0 );
-	glVertex3f( 0.0, 1.0, 0 );
-	glTexCoord2f( 0.5 + texture_overlap, 1.0 );
-	glVertex3f( 0.0, -1.0, 0 );
+	glTexCoord2f( 0.5 - overlap/2, 0.0 );
+	glVertex3f( 0.0 - texture_overlap, 1.0, 0 );
+	glTexCoord2f( 0.5 - overlap/2, 1.0 );
+	glVertex3f( 0.0 - texture_overlap, -1.0, 0 );
 	glTexCoord2f( 0.0, 1.0 );
 	glVertex3f( -1.0, -1.0, 0 );
-    /* right */
-	glTexCoord2f( 0.5 - texture_overlap, 0.0 );
+    /* left-overlap */
+	glTexCoord2f( 0.5 - overlap/2, 0.0 );
+	glVertex3f( 0.0 - texture_overlap, 1.0, 0 );
+	glTexCoord2f( 0.5 + overlap/2, 0.0 );
 	glVertex3f( 0.0, 1.0, 0 );
+	glTexCoord2f( 0.5 + overlap/2, 1.0 );
+	glVertex3f( 0.0 , -1.0, 0 );
+	glTexCoord2f( 0.5 - overlap/2, 1.0 );
+	glVertex3f( 0.0 - texture_overlap, -1.0, 0 );
+    /* right-overlap */
+	glTexCoord2f( 0.5 - overlap/2, 0.0 );
+	glVertex3f( 0.0, 1.0, 0 );
+	glTexCoord2f( 0.5 + overlap/2, 0.0 );
+	glVertex3f( 0.0 + texture_overlap, 1.0, 0 );
+	glTexCoord2f( 0.5 + overlap/2, 1.0 );
+	glVertex3f( 0.0 + texture_overlap, -1.0, 0 );
+	glTexCoord2f( 0.5 - overlap/2, 1.0 );
+	glVertex3f( 0.0, -1.0, 0 );
+    /* right */
+	glTexCoord2f( 0.5 + overlap/2, 0.0 );
+	glVertex3f( 0.0 + texture_overlap, 1.0, 0 );
 	glTexCoord2f( 1.0, 0.0 );
 	glVertex3f( 1.0, 1.0, 0 );
 	glTexCoord2f( 1.0, 1.0 );
-	glVertex3f( 1.0, -1.0, 0 );
-	glTexCoord2f( 0.5 - texture_overlap, 1.0 );
-	glVertex3f( 0.0, -1.0, 0 );
+	glVertex3f( 1.0, -1.0, 0);
+	glTexCoord2f( 0.5 + overlap/2, 1.0 );
+	glVertex3f( 0.0 + texture_overlap, -1.0, 0);
     
         glEnd();
         glPopMatrix();
