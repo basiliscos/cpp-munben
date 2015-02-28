@@ -8,9 +8,7 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 
-GLuint load_texture(SDL_Surface* image) {
-  GLuint texture_id;
-  glGenTextures(1, &texture_id);
+void load_texture(GLuint texture_id, SDL_Surface* image) {
   Uint8 number_of_colors = image->format->BytesPerPixel;
   GLenum texture_format = number_of_colors == 4
     ? ( image->format->Rmask == 0x000000ff ? GL_RGBA : GL_BGRA )
@@ -26,14 +24,33 @@ GLuint load_texture(SDL_Surface* image) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexImage2D(GL_TEXTURE_2D, 0, texture_format, image->w, image->h,
                  0, texture_format, GL_UNSIGNED_BYTE, image->pixels);
-  return texture_id;
 }
 
 /* globals */
+SDL_Surface* original;
+SDL_Surface* left_overlap = NULL;
+SDL_Surface* right_overlap = NULL;
 static float overlap = 0.0f;
+GLuint original_texture_id;
+GLuint left_overlap_texture_id;
+GLuint right_overlap_texture_id;
 
+void _copy_original() {
+  if (left_overlap) SDL_FreeSurface(left_overlap);
+  if (right_overlap) SDL_FreeSurface(right_overlap);
+  left_overlap = SDL_ConvertSurface(original, original->format, SDL_SWSURFACE);
+  right_overlap = SDL_ConvertSurface(original, original->format, SDL_SWSURFACE);
+}
 
-void TW_CALL _set_overlap_callback(const void *value, void *clientData){ overlap = *(const float *)value; }
+void TW_CALL _set_overlap_callback(const void *value, void *clientData){
+  float new_overlap = *(const float *)value;
+  if (new_overlap != overlap) {
+    overlap = new_overlap;
+    _copy_original();
+    load_texture(left_overlap_texture_id, left_overlap);
+    load_texture(right_overlap_texture_id, right_overlap);
+  }
+}
 
 void TW_CALL _get_overlap_callback(void *value, void *clientData) { *(float *)value = overlap; }
 
@@ -105,13 +122,16 @@ int main()
     TwAddVarCB(bar, "overlap", TW_TYPE_FLOAT, _set_overlap_callback, _get_overlap_callback, NULL,
                "max=0.25 min=0.0 step=0.001");
 
-    SDL_Surface* image = IMG_Load("/home/basiliscos/development/perl/group-dual/picture.jpg");
-    if(!image) {
+    original = IMG_Load("picture.jpg");
+    if(!original) {
       printf("IMG_Load: %s\n", IMG_GetError());
       exit(1);
     }
 
-    GLuint texture_id = load_texture(image);
+    glGenTextures(1, &original_texture_id);
+    glGenTextures(1, &left_overlap_texture_id);
+    glGenTextures(1, &right_overlap_texture_id);
+    load_texture(original_texture_id, original);
     // Main loop:
     // - Draw some cubes
     // - Process events
@@ -137,46 +157,55 @@ int main()
 
 	glTranslatef( 0, 0, distance);
 	glColor3d( 1, 1, 1 );
-    glBindTexture(GL_TEXTURE_2D, texture_id);
-	glBegin(GL_QUADS);
-    /* left */
-	glTexCoord2f( 0.0, 0.0 );
-	glVertex3f( -1.0, 1.0, 0 );
-	glTexCoord2f( 0.5 - overlap/2, 0.0 );
-	glVertex3f( 0.0 - texture_overlap, 1.0, 0 );
-	glTexCoord2f( 0.5 - overlap/2, 1.0 );
-	glVertex3f( 0.0 - texture_overlap, -1.0, 0 );
-	glTexCoord2f( 0.0, 1.0 );
-	glVertex3f( -1.0, -1.0, 0 );
+    glBindTexture(GL_TEXTURE_2D, original_texture_id);
+	glBegin(GL_QUADS); {
+      /* left */
+      glTexCoord2f( 0.0, 0.0 );
+      glVertex3f( -1.0, 1.0, 0 );
+      glTexCoord2f( 0.5 - overlap/2, 0.0 );
+      glVertex3f( 0.0 - texture_overlap, 1.0, 0 );
+      glTexCoord2f( 0.5 - overlap/2, 1.0 );
+      glVertex3f( 0.0 - texture_overlap, -1.0, 0 );
+      glTexCoord2f( 0.0, 1.0 );
+      glVertex3f( -1.0, -1.0, 0 );
+      /* right */
+      glTexCoord2f( 0.5 + overlap/2, 0.0 );
+      glVertex3f( 0.0 + texture_overlap, 1.0, 0 );
+      glTexCoord2f( 1.0, 0.0 );
+      glVertex3f( 1.0, 1.0, 0 );
+      glTexCoord2f( 1.0, 1.0 );
+      glVertex3f( 1.0, -1.0, 0);
+      glTexCoord2f( 0.5 + overlap/2, 1.0 );
+      glVertex3f( 0.0 + texture_overlap, -1.0, 0);
+    }
+    glEnd();
     /* left-overlap */
-	glTexCoord2f( 0.5 - overlap/2, 0.0 );
-	glVertex3f( 0.0 - texture_overlap, 1.0, 0 );
-	glTexCoord2f( 0.5 + overlap/2, 0.0 );
-	glVertex3f( 0.0, 1.0, 0 );
-	glTexCoord2f( 0.5 + overlap/2, 1.0 );
-	glVertex3f( 0.0 , -1.0, 0 );
-	glTexCoord2f( 0.5 - overlap/2, 1.0 );
-	glVertex3f( 0.0 - texture_overlap, -1.0, 0 );
-    /* right-overlap */
-	glTexCoord2f( 0.5 - overlap/2, 0.0 );
-	glVertex3f( 0.0, 1.0, 0 );
-	glTexCoord2f( 0.5 + overlap/2, 0.0 );
-	glVertex3f( 0.0 + texture_overlap, 1.0, 0 );
-	glTexCoord2f( 0.5 + overlap/2, 1.0 );
-	glVertex3f( 0.0 + texture_overlap, -1.0, 0 );
-	glTexCoord2f( 0.5 - overlap/2, 1.0 );
-	glVertex3f( 0.0, -1.0, 0 );
-    /* right */
-	glTexCoord2f( 0.5 + overlap/2, 0.0 );
-	glVertex3f( 0.0 + texture_overlap, 1.0, 0 );
-	glTexCoord2f( 1.0, 0.0 );
-	glVertex3f( 1.0, 1.0, 0 );
-	glTexCoord2f( 1.0, 1.0 );
-	glVertex3f( 1.0, -1.0, 0);
-	glTexCoord2f( 0.5 + overlap/2, 1.0 );
-	glVertex3f( 0.0 + texture_overlap, -1.0, 0);
+    glBindTexture(GL_TEXTURE_2D, left_overlap_texture_id);
+	glBegin(GL_QUADS); {
+      glTexCoord2f( 0.5 - overlap/2, 0.0 );
+      glVertex3f( 0.0 - texture_overlap, 1.0, 0 );
+      glTexCoord2f( 0.5 + overlap/2, 0.0 );
+      glVertex3f( 0.0, 1.0, 0 );
+      glTexCoord2f( 0.5 + overlap/2, 1.0 );
+      glVertex3f( 0.0 , -1.0, 0 );
+      glTexCoord2f( 0.5 - overlap/2, 1.0 );
+      glVertex3f( 0.0 - texture_overlap, -1.0, 0 );
+    }
+    glEnd();
+      /* right-overlap */
+    glBindTexture(GL_TEXTURE_2D, right_overlap_texture_id);
+	glBegin(GL_QUADS); {
+      glTexCoord2f( 0.5 - overlap/2, 0.0 );
+      glVertex3f( 0.0, 1.0, 0 );
+      glTexCoord2f( 0.5 + overlap/2, 0.0 );
+      glVertex3f( 0.0 + texture_overlap, 1.0, 0 );
+      glTexCoord2f( 0.5 + overlap/2, 1.0 );
+      glVertex3f( 0.0 + texture_overlap, -1.0, 0 );
+      glTexCoord2f( 0.5 - overlap/2, 1.0 );
+      glVertex3f( 0.0, -1.0, 0 );
+    }
+    glEnd();
 
-        glEnd();
         glPopMatrix();
 
         TwDraw();
@@ -209,6 +238,7 @@ int main()
 
     // Terminate SDL
     SDL_Quit();
+    SDL_FreeSurface(original);
 
     return 0;
 }
