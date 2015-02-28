@@ -40,6 +40,70 @@ void _copy_original() {
   if (right_overlap) SDL_FreeSurface(right_overlap);
   left_overlap = SDL_ConvertSurface(original, original->format, SDL_SWSURFACE);
   right_overlap = SDL_ConvertSurface(original, original->format, SDL_SWSURFACE);
+  int bpp = original->format->BytesPerPixel;
+  int diff = (int)(original->w*overlap/2);
+  int left_border = original->w/2 - diff;
+  int right_border = original->w/2 + diff;
+  printf("bpp: %d, be: %d, l: %d, r: %d\n", bpp, SDL_BYTEORDER == SDL_BIG_ENDIAN, left_border, right_border);
+  /* Lock the screen for direct access to the pixels */
+  if ( SDL_MUSTLOCK(left_overlap) ) {
+    if ( SDL_LockSurface(left_overlap < 0 )) {
+      fprintf(stderr, "Can't lock screen: %s\n", SDL_GetError());
+      return;
+    }
+  }
+  if ( SDL_MUSTLOCK(right_overlap) ) {
+    if ( SDL_LockSurface(right_overlap < 0 )) {
+      fprintf(stderr, "Can't lock screen: %s\n", SDL_GetError());
+      return;
+    }
+  }
+
+  int distance = right_border - left_border;
+  for (int step = 0; step <= distance; step++ ) {
+    int x = step + left_border;
+    for (int y = 0; y < original->h; y++) {
+      Uint8 *lp = (Uint8 *)left_overlap->pixels + y * left_overlap->pitch + x * bpp;
+      Uint8 *rp = (Uint8 *)right_overlap->pixels + y * right_overlap->pitch + x * bpp;
+      if (bpp == 3  && SDL_BYTEORDER != SDL_BIG_ENDIAN) {
+        /* left */
+        {
+          float part = ((float)step)/distance;
+          int color_diff = (int)(part*255.0);
+          /*
+          Uint8 min = lp[0];
+          for (int c = 1; c < 3; c++)
+            if (lp[c] < min) min = lp[c];
+          if (min) {
+            Uint8 c_diff = min > color_diff ? color_diff : min;
+            for(int c = 0; c < 3; c++) lp[c] -= c_diff;
+          }
+          */
+          for(int c = 0; c < 3; c++) {
+            lp[c] = lp[c] < color_diff ? 0 : lp[c] - color_diff;
+          }
+        }
+        /* right */
+        {
+          float part = ((float)distance-step)/distance;
+          int color_diff = (int)(part*255.0);
+          for(int c = 0; c < 3; c++) {
+            rp[c] = rp[c] < color_diff ? 0 : rp[c] - color_diff;
+          }
+        }
+      }
+    }
+  }
+  /* draw window borders */
+  for (int y = 0; y < 100; y++) {
+    int lx = left_border;
+    int rx = right_border;
+    Uint8 *lp = (Uint8 *)left_overlap->pixels + y * original->pitch + lx * bpp;
+    Uint8 *rp = (Uint8 *)right_overlap->pixels + y * original->pitch + rx * bpp;
+    lp[0] = lp[1] = lp[2] = rp[0] = rp[1] = rp[2] = 0;
+  }
+  SDL_UpdateRect(left_overlap, 0, 0, left_overlap->w, left_overlap->h);
+  SDL_UpdateRect(right_overlap, 0, 0, right_overlap->w, right_overlap->h);
 }
 
 void TW_CALL _set_overlap_callback(const void *value, void *clientData){
@@ -120,7 +184,7 @@ int main()
     TwAddVarRW(bar, "distance", TW_TYPE_FLOAT, &distance,
                " max=-0.20 min=-4.0 step=0.01");
     TwAddVarCB(bar, "overlap", TW_TYPE_FLOAT, _set_overlap_callback, _get_overlap_callback, NULL,
-               "max=0.25 min=0.0 step=0.001");
+               "max=0.25 min=0.0 step=0.001 keydecr='[' keyincr=']' ");
 
     original = IMG_Load("picture.jpg");
     if(!original) {
