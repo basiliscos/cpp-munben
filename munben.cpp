@@ -29,6 +29,14 @@ GLuint load_texture(SDL_Surface* image) {
   return texture_id;
 }
 
+/* globals */
+static float overlap = 0.0f;
+
+
+void TW_CALL _set_overlap_callback(const void *value, void *clientData){ overlap = *(const float *)value; }
+
+void TW_CALL _get_overlap_callback(void *value, void *clientData) { *(float *)value = overlap; }
+
 int main()
 {
     const SDL_VideoInfo* video = NULL;
@@ -92,10 +100,9 @@ int main()
     // Create a tweak bar
     bar = TwNewBar("TweakBar");
     float distance = -0.20f;
-    TwAddVarRW(bar, "distance", TW_TYPE_FLOAT, &distance, 
+    TwAddVarRW(bar, "distance", TW_TYPE_FLOAT, &distance,
                " max=-0.20 min=-4.0 step=0.01");
-    float overlap = 0.0f;
-    TwAddVarRW(bar, "overlap", TW_TYPE_FLOAT, &overlap, 
+    TwAddVarCB(bar, "overlap", TW_TYPE_FLOAT, _set_overlap_callback, _get_overlap_callback, NULL,
                "max=0.25 min=0.0 step=0.001");
 
     SDL_Surface* image = IMG_Load("/home/basiliscos/development/perl/group-dual/picture.jpg");
@@ -103,7 +110,7 @@ int main()
       printf("IMG_Load: %s\n", IMG_GetError());
       exit(1);
     }
-               
+
     GLuint texture_id = load_texture(image);
     // Main loop:
     // - Draw some cubes
@@ -127,7 +134,7 @@ int main()
 
 
     float texture_overlap = 2.0 * overlap;
-    
+
 	glTranslatef( 0, 0, distance);
 	glColor3d( 1, 1, 1 );
     glBindTexture(GL_TEXTURE_2D, texture_id);
@@ -168,7 +175,7 @@ int main()
 	glVertex3f( 1.0, -1.0, 0);
 	glTexCoord2f( 0.5 + overlap/2, 1.0 );
 	glVertex3f( 0.0 + texture_overlap, -1.0, 0);
-    
+
         glEnd();
         glPopMatrix();
 
