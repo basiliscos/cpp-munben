@@ -66,30 +66,11 @@ void _copy_original() {
       Uint8 *lp = (Uint8 *)left_overlap->pixels + y * left_overlap->pitch + x * bpp;
       Uint8 *rp = (Uint8 *)right_overlap->pixels + y * right_overlap->pitch + x * bpp;
       if (bpp == 3  && SDL_BYTEORDER != SDL_BIG_ENDIAN) {
-        /* left */
-        {
-          float part = ((float)step)/distance;
-          int color_diff = (int)(part*255.0);
-          /*
-          Uint8 min = lp[0];
-          for (int c = 1; c < 3; c++)
-            if (lp[c] < min) min = lp[c];
-          if (min) {
-            Uint8 c_diff = min > color_diff ? color_diff : min;
-            for(int c = 0; c < 3; c++) lp[c] -= c_diff;
-          }
-          */
-          for(int c = 0; c < 3; c++) {
-            lp[c] = lp[c] < color_diff ? 0 : lp[c] - color_diff;
-          }
-        }
-        /* right */
-        {
-          float part = ((float)distance-step)/distance;
-          int color_diff = (int)(part*255.0);
-          for(int c = 0; c < 3; c++) {
-            rp[c] = rp[c] < color_diff ? 0 : rp[c] - color_diff;
-          }
+        float share = ((float)step)/distance;
+        for(int c = 0; c < 3; c++) {
+          Uint8 value = (Uint8)(rp[c]*share);
+          rp[c] = value;
+          lp[c] -= value;
         }
       }
     }
