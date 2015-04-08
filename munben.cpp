@@ -7,6 +7,22 @@
 
 #include <GL/gl.h>
 #include <GL/glu.h>
+#include <vector>
+#include <math.h>
+
+/* globals */
+SDL_Surface* original;
+SDL_Surface* left_overlap = NULL;
+SDL_Surface* right_overlap = NULL;
+static float overlap = 0.0f;
+GLuint original_texture_id;
+GLuint left_overlap_texture_id;
+GLuint right_overlap_texture_id;
+
+float max_brighness = 0;
+std::vector<double> optical_brightness;
+
+int width  = 1000, height = 700;
 
 void load_texture(GLuint texture_id, SDL_Surface* image) {
   Uint8 number_of_colors = image->format->BytesPerPixel;
@@ -26,16 +42,27 @@ void load_texture(GLuint texture_id, SDL_Surface* image) {
                  0, texture_format, GL_UNSIGNED_BYTE, image->pixels);
 }
 
-/* globals */
-SDL_Surface* original;
-SDL_Surface* left_overlap = NULL;
-SDL_Surface* right_overlap = NULL;
-static float overlap = 0.0f;
-GLuint original_texture_id;
-GLuint left_overlap_texture_id;
-GLuint right_overlap_texture_id;
-
-int width  = 1000, height = 700;
+Uint8 _color_index(Uint8 value, float share) {
+  double normalized_value = value / 255.0;
+  double linear = max_brighness * (1-share) * normalized_value;
+  //double linear = max_brighness * share * (1-normalized_value);
+  //double linear = max_brighness * share * normalized_value;
+  int idx = 0;
+  int max_idx = optical_brightness.size() -1 ;
+  double nearest_distance = abs(optical_brightness[0] - linear);
+  for(int i = 1; i <= max_idx; i++) {
+    double diff = fabs(optical_brightness[i] - linear);
+    if(diff < nearest_distance) {
+      idx = i;
+      nearest_distance = diff;
+    }
+  }
+  //Uint8 result = (Uint8)(normalized_value * (1-share) * 255.0 * (size - idx) / size );
+  //Uint8 result = (Uint8)( 255.0 * (1-share) * normalized_value * (size - idx) / size );
+  Uint8 result = (Uint8) (255 * (max_idx - idx) / max_idx);
+  //printf("share = %f, value = %d, idx = %d, linear = %f, result = %d \n", share, value, idx, linear, result);
+  return result;
+}
 
 void _copy_original() {
   if (left_overlap) SDL_FreeSurface(left_overlap);
@@ -49,13 +76,13 @@ void _copy_original() {
   printf("bpp: %d, be: %d, l: %d, r: %d\n", bpp, SDL_BYTEORDER == SDL_BIG_ENDIAN, left_border, right_border);
   /* Lock the screen for direct access to the pixels */
   if ( SDL_MUSTLOCK(left_overlap) ) {
-    if ( SDL_LockSurface(left_overlap < 0 )) {
+    if ( SDL_LockSurface(left_overlap) < 0 ) {
       fprintf(stderr, "Can't lock screen: %s\n", SDL_GetError());
       return;
     }
   }
   if ( SDL_MUSTLOCK(right_overlap) ) {
-    if ( SDL_LockSurface(right_overlap < 0 )) {
+    if ( SDL_LockSurface(right_overlap) < 0 ) {
       fprintf(stderr, "Can't lock screen: %s\n", SDL_GetError());
       return;
     }
@@ -70,9 +97,13 @@ void _copy_original() {
       if (bpp == 3  && SDL_BYTEORDER != SDL_BIG_ENDIAN) {
         float share = ((float)step)/distance;
         for(int c = 0; c < 3; c++) {
-          Uint8 value = (Uint8)(rp[c]*share);
-          rp[c] = value;
-          lp[c] -= value;
+          Uint8 value = (Uint8)rp[c];
+          //Uint8 value = (Uint8)(rp[c]*share);
+          //rp[c] = value;
+          //lp[c] -= value;
+          //lp[c] = _color_index(value, 1.0 - (float(step) / distance));
+          lp[c] = _color_index(value, (0.0 + step) / distance);
+          rp[c] = (Uint8)(rp[c]*share);
         }
       }
     }
@@ -125,13 +156,24 @@ void _reshape(int w, int h, int bpp, Uint32 flags) {
     TwWindowSize(w, h);
 }
 
-int main()
+void _init_brightness(char *filename) {
+  float d, max_value = 0;
+  FILE *brightness_file = fopen(filename, "r");
+  while (fscanf(brightness_file, "%f", &d ) == 1) {
+    optical_brightness.push_back(d);
+    if (max_value < d) max_value = d;
+  }
+  max_brighness = max_value;
+}
+
+int main(int argc, char** argv)
 {
     const SDL_VideoInfo* video = NULL;
     int bpp, flags;
     int quit = 0;
     TwBar *bar;
 
+    _init_brightness(argv[1]);
     // Initialize SDL, then get the current video mode and use it to create a SDL window.
     if( SDL_Init(SDL_INIT_VIDEO)<0 )
     {
